@@ -24,7 +24,7 @@ ADMIN_ID = 8366608745
 # 🔑 ZAPUPI GATEWAY CONFIG
 ZAP_KEY = "zape52407ad41fde98699d4c8c9b85d9d7f"  # 🔑 YAHAN APNA ZAP KEY LAGAO
 ZAP_API_URL = "https://zapupi.com/api/v1/create-order"  # ZapUPI API endpoint
-WEBHOOK_URL = "https://your-domain.com/webhook"  # 🔑 YAHAN APNA WEBHOOK URL LAGAO
+WEBHOOK_URL = "https://fub-bot.onrender.com"  # 🔑 YAHAN APNA WEBHOOK URL LAGAO
 
 # 💾 Store user orders
 user_orders = {}
