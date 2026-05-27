@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# APK FUD BOT - With ZapUPI Gateway Integration
+# APK FUD BOT - With ZapUPI Gateway Integration (FIXED)
 # Developer: Rahul Mod Developer
 
 import telebot
@@ -19,12 +19,18 @@ import string
 
 # 🔑 BOT CONFIG
 BOT_TOKEN = "8766471260:AAEzCxeEJTL9l-2JoO09zHpgR-409-j9QTM"
-ADMIN_ID = "8366608745"
+ADMIN_ID = 8366608745
 
-# 🔑 ZAPUPI GATEWAY CONFIG
-ZAP_KEY = "zape52407ad41fde98699d4c8c9b85d9d7f"  # 🔑 YAHAN APNA ZAP KEY LAGAO
-ZAP_API_URL = "https://zapupi.com/api/v1/create-order"  # ZapUPI API endpoint
-WEBHOOK_URL = "https://fub-bot.onrender.com"  # 🔑 YAHAN APNA WEBHOOK URL LAGAO
+# 🔑 ZAPUPI GATEWAY CONFIG (FIXED)
+ZAP_KEY = "zape52407ad41fde98699d4c8c9b85d9d7f"
+
+# ✅ FIXED: Sahi API endpoints
+ZAPUPI_BASE = "https://zapupi.com"
+CREATE_ORDER_URL = f"{ZAPUPI_BASE}/api/v1/order/create"  # FIXED endpoint
+ORDER_STATUS_URL = f"{ZAPUPI_BASE}/api/v1/order/status"  # FIXED endpoint
+
+# ✅ FIXED: Webhook URL mein /webhook add kiya
+WEBHOOK_URL = "https://fub-bot.onrender.com/webhook"  # <--- YAHAN /webhook LAGANA ZAROORI HAI
 
 # 💾 Store user orders
 user_orders = {}
@@ -33,65 +39,97 @@ verified_users = set()
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-# ============= CREATE ORDER IN ZAPUPI =============
+# ============= CREATE ORDER IN ZAPUPI (FIXED) =============
 def create_zapupi_order(user_id, user_name, amount=500):
-    """Create order in ZapUPI gateway"""
+    """Create order in ZapUPI gateway - FIXED"""
     order_id = f"APK_{user_id}_{int(time.time())}"
     
+    # ✅ FIXED: Sahi payload format (form-urlencoded)
     payload = {
         "key": ZAP_KEY,
         "order_id": order_id,
         "amount": str(amount),
-        "customer_name": user_name,
-        "customer_mobile": str(user_id)[:10],  # Telegram ID as mobile
-        "description": f"APK FUD V2 Purchase - {user_name}",
-        "webhook_url": WEBHOOK_URL,
-        "return_url": f"https://t.me/your_bot_username",
-        "payment_mode": "cashier"  # cashier, zappay, random
+        "name": user_name,
+        "mobile": str(user_id)[-10:],
+        "description": f"APK FUD V2 Purchase",
+        "webhook": WEBHOOK_URL,
+        "return_url": "https://t.me/your_bot_username",
+        "mode": "cashier"
     }
     
+    # ✅ FIXED: Form data ke liye headers
     headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {ZAP_KEY}"
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/json"
     }
     
     try:
         print(f"[DEBUG] Creating order for user {user_id}")
-        response = requests.post(ZAP_API_URL, json=payload, headers=headers, timeout=30)
+        print(f"[DEBUG] URL: {CREATE_ORDER_URL}")
+        
+        # ✅ FIXED: data=payload use kiya (not json=)
+        response = requests.post(
+            CREATE_ORDER_URL, 
+            data=payload,  # Important: 'data' not 'json'
+            headers=headers, 
+            timeout=30
+        )
+        
+        print(f"[DEBUG] Status Code: {response.status_code}")
         print(f"[DEBUG] Response: {response.text}")
         
         if response.status_code == 200:
-            data = response.json()
-            if data.get("status") == "success":
-                payment_link = data.get("payment_link") or data.get("url")
-                return {
-                    "success": True,
-                    "order_id": order_id,
-                    "payment_link": payment_link,
-                    "amount": amount
-                }
-            else:
-                return {"success": False, "error": data.get("message", "Unknown error")}
+            try:
+                data = response.json()
+                
+                # ✅ FIXED: Multiple response format handle
+                if data.get("status") == "success" or data.get("success"):
+                    payment_link = data.get("payment_link") or data.get("url") or data.get("redirect_url")
+                    
+                    if payment_link:
+                        return {
+                            "success": True,
+                            "order_id": order_id,
+                            "payment_link": payment_link,
+                            "amount": amount
+                        }
+                    else:
+                        return {"success": False, "error": "No payment link in response"}
+                else:
+                    error_msg = data.get("message") or data.get("error") or "Unknown error"
+                    return {"success": False, "error": error_msg}
+            except json.JSONDecodeError:
+                return {"success": False, "error": f"Invalid JSON: {response.text[:100]}"}
         else:
-            return {"success": False, "error": f"HTTP {response.status_code}"}
+            return {"success": False, "error": f"HTTP {response.status_code}: {response.text[:100]}"}
             
     except Exception as e:
         print(f"[ERROR] {e}")
         return {"success": False, "error": str(e)}
 
-# ============= VERIFY PAYMENT STATUS =============
+# ============= VERIFY PAYMENT STATUS (FIXED) =============
 def check_payment_status(order_id):
-    """Check payment status from ZapUPI"""
-    url = f"https://zapupi.com/api/v1/order-status/{order_id}"
-    headers = {"Authorization": f"Bearer {ZAP_KEY}"}
+    """Check payment status from ZapUPI - FIXED"""
+    url = f"{ORDER_STATUS_URL}/{order_id}"
+    headers = {"Accept": "application/json"}
     
     try:
         response = requests.get(url, headers=headers, timeout=30)
+        print(f"[DEBUG] Status check response: {response.text}")
+        
         if response.status_code == 200:
             data = response.json()
-            return data.get("status") == "success" and data.get("payment_status") == "Success"
+            # Check if payment is successful
+            status = data.get("status")
+            payment_status = data.get("payment_status")
+            
+            if status == "success" and payment_status == "Success":
+                return True
+            elif data.get("status_code") == "TXN_SUCCESS":
+                return True
         return False
-    except:
+    except Exception as e:
+        print(f"[ERROR] Status check error: {e}")
         return False
 
 # ============= GET MAIN KEYBOARD =============
@@ -114,7 +152,6 @@ def start_command(message):
     user_id = message.from_user.id
     user_name = message.from_user.first_name or "User"
     
-    # Check if already verified
     if user_id in verified_users:
         welcome_back = """
 ╔══════════════════════════════╗
@@ -176,23 +213,19 @@ def buy_now_callback(call):
     user_id = call.from_user.id
     user_name = call.from_user.first_name or "User"
     
-    # Check if already verified
     if user_id in verified_users:
         bot.answer_callback_query(call.id, "✅ You already have access!", show_alert=True)
         return
     
-    # Send processing message
     processing_msg = bot.send_message(
         user_id,
         "🔄 **𝐂𝐫𝐞𝐚𝐭𝐢𝐧𝐠 𝐩𝐚𝐲𝐦𝐞𝐧𝐭 𝐥𝐢𝐧𝐤...**\n\n⏳ 𝐏𝐥𝐞𝐚𝐬𝐞 𝐰𝐚𝐢𝐭 𝟓-𝟏𝟎 𝐬𝐞𝐜𝐨𝐧𝐝𝐬",
         parse_mode='Markdown'
     )
     
-    # Create order in ZapUPI
     order = create_zapupi_order(user_id, user_name, 500)
     
     if order["success"]:
-        # Store order info
         user_orders[user_id] = {
             "order_id": order["order_id"],
             "payment_link": order["payment_link"],
@@ -201,10 +234,8 @@ def buy_now_callback(call):
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         
-        # Delete processing message
         bot.delete_message(user_id, processing_msg.message_id)
         
-        # Send payment instructions with link
         payment_text = f"""
 ╔══════════════════════════════╗
 ║      💳 𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐋𝐈𝐍𝐊 💳      ║
@@ -240,7 +271,6 @@ def buy_now_callback(call):
             reply_markup=get_payment_keyboard(order['order_id'])
         )
         
-        # Notify admin
         admin_msg = f"""
 🆕 **𝐍𝐄𝐖 𝐎𝐑𝐃𝐄𝐑 𝐂𝐑𝐄𝐀𝐓𝐄𝐃**
 
@@ -271,7 +301,6 @@ def check_payment_callback(call):
     
     order = user_orders[user_id]
     
-    # Send checking message
     bot.answer_callback_query(call.id, "🔄 Checking payment status...")
     
     checking_msg = bot.send_message(
@@ -280,17 +309,14 @@ def check_payment_callback(call):
         parse_mode='Markdown'
     )
     
-    # Check payment status from ZapUPI
     is_paid = check_payment_status(order_id)
     
     if is_paid:
-        # Mark user as verified
         verified_users.add(user_id)
         order["status"] = "completed"
         
         bot.delete_message(user_id, checking_msg.message_id)
         
-        # Send success message with APK
         success_msg = """
 ╔══════════════════════════════╗
 ║    ✅ 𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐕𝐄𝐑𝐈𝐅𝐈𝐄𝐃 ✅    ║
@@ -315,14 +341,12 @@ def check_payment_callback(call):
 ━━━━━━━━━━━━━━━━━━━━━━━━
 """
         
-        # Send with download button
         keyboard = InlineKeyboardMarkup()
         download_btn = InlineKeyboardButton("📥 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 𝐀𝐏𝐊", url="https://example.com/apk-fud.apk")
         keyboard.add(download_btn)
         
         bot.send_message(user_id, success_msg, parse_mode='Markdown', reply_markup=keyboard)
         
-        # Notify admin
         admin_msg = f"""
 ✅ **𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐂𝐎𝐌𝐏𝐋𝐄𝐓𝐄𝐃**
 
@@ -357,42 +381,55 @@ def cancel_callback(call):
         parse_mode='Markdown'
     )
 
-# ============= WEBHOOK FOR ZAPUPI (AUTO VERIFICATION) =============
-@app.route('/webhook', methods=['POST'])
+# ============= WEBHOOK FOR ZAPUPI (FIXED - GET Method Support) =============
+@app.route('/webhook', methods=['GET', 'POST'])
 def zapupi_webhook():
-    """Receive payment confirmation from ZapUPI"""
+    """Receive payment confirmation from ZapUPI - FIXED"""
+    
+    # ✅ FIXED: GET request handle (for testing)
+    if request.method == 'GET':
+        return jsonify({
+            "status": "success", 
+            "message": "Webhook endpoint is active",
+            "note": "Send POST request for payment confirmation"
+        }), 200
+    
+    # Handle POST request
     try:
-        data = request.json
+        # Get data from JSON or form data
+        if request.is_json:
+            data = request.json
+        else:
+            data = request.form.to_dict()
+        
         print(f"[WEBHOOK] Received: {json.dumps(data, indent=2)}")
         
-        # Verify webhook data
         order_id = data.get("order_id")
         status = data.get("status")
         utr = data.get("utr")
         amount = data.get("amount")
         
         if status == "Success" and order_id:
-            # Extract user_id from order_id (format: APK_{user_id}_{timestamp})
             try:
                 parts = order_id.split("_")
-                user_id = int(parts[1])
+                if len(parts) >= 2:
+                    user_id = int(parts[1])
+                else:
+                    user_id = None
             except:
                 user_id = None
             
             if user_id:
-                # Mark user as verified
                 verified_users.add(user_id)
                 
-                # Update order status
                 if user_id in user_orders:
                     user_orders[user_id]["status"] = "completed"
                     user_orders[user_id]["utr"] = utr
                 
-                # Send success message to user
                 success_msg = f"""
 ✅ **𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐑𝐄𝐂𝐄𝐈𝐕𝐄𝐃!**
 
-💳 **𝐀𝐦𝐨𝐮𝐧𝐭:** ₹{amount}
+💳 **𝐀𝐦𝐨𝐮𝐧𝐭:** ₹{amount if amount else '500'}
 🆔 **𝐔𝐓𝐑:** `{utr}`
 
 📱 **𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐀𝐏𝐊 𝐅𝐔𝐃 𝐕𝟐:**
@@ -406,13 +443,12 @@ def zapupi_webhook():
                 except:
                     pass
                 
-                # Notify admin
                 admin_msg = f"""
 💳 **𝐀𝐔𝐓𝐎 𝐕𝐄𝐑𝐈𝐅𝐈𝐄𝐃 𝐏𝐀𝐘𝐌𝐄𝐍𝐓**
 
 👤 **𝐔𝐬𝐞𝐫 𝐈𝐃:** `{user_id}`
 🆔 **𝐎𝐫𝐝𝐞𝐫:** `{order_id}`
-💰 **𝐀𝐦𝐨𝐮𝐧𝐭:** ₹{amount}
+💰 **𝐀𝐦𝐨𝐮𝐧𝐭:** ₹{amount if amount else '500'}
 🔢 **𝐔𝐓𝐑:** `{utr}`
 
 ✅ **𝐀𝐜𝐜𝐞𝐬𝐬 𝐠𝐫𝐚𝐧𝐭𝐞𝐝 𝐚𝐮𝐭𝐨𝐦𝐚𝐭𝐢𝐜𝐚𝐥𝐥𝐲**
@@ -423,7 +459,7 @@ def zapupi_webhook():
         
     except Exception as e:
         print(f"[WEBHOOK ERROR] {e}")
-        return jsonify({"status": "error"}), 200
+        return jsonify({"status": "error", "message": str(e)}), 200
 
 # ============= STATUS COMMAND =============
 @bot.message_handler(commands=['status'])
@@ -490,7 +526,6 @@ def admin_panel(message):
 ━━━━━━━━━━━━━━━━━━━━━━━━
 📌 /give @username - Give free access
 📌 /remove @username - Remove access
-📌 /broadcast - Send message to all
 ━━━━━━━━━━━━━━━━━━━━━━━━
 """
     bot.send_message(ADMIN_ID, stats_msg, parse_mode='Markdown')
@@ -538,15 +573,16 @@ def help_command(message):
 def home():
     return {
         "status": "APK FUD Bot is Running",
-        "version": "V2",
+        "version": "V2.1",
         "developer": "Rahul Mod Developer",
         "verified_users": len(verified_users),
-        "pending_orders": len(user_orders)
+        "pending_orders": len(user_orders),
+        "webhook_url": WEBHOOK_URL
     }, 200
 
 @app.route('/health')
 def health():
-    return {"status": "healthy"}, 200
+    return {"status": "healthy", "webhook_active": True}, 200
 
 def run_bot_polling():
     while True:
@@ -562,15 +598,12 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     
     print("="*50)
-    print("🔥 APK FUD BOT V2 - WITH ZAPUPI 🔥")
+    print("🔥 APK FUD BOT V2.1 - FIXED 🔥")
     print("="*50)
     print(f"✅ Bot Token: {BOT_TOKEN[:10]}...")
     print(f"✅ Admin ID: {ADMIN_ID}")
     print(f"✅ Zap Key: {ZAP_KEY[:10]}...")
     print(f"✅ Webhook URL: {WEBHOOK_URL}")
-    print("="*50)
-    print("⚠️ IMPORTANT: Set YOUR_ZAP_KEY_HERE!")
-    print("⚠️ Set YOUR_WEBHOOK_URL_HERE!")
     print("="*50)
     
     # Start polling thread
