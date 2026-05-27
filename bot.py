@@ -17,9 +17,9 @@ BOT_TOKEN = "8766471260:AAEzCxeEJTL9l-2JoO09zHpgR-409-j9QTM"
 ADMIN_ID = 8366608745
 
 # 🔑 ZAPUPI GATEWAY CONFIG
-ZAP_KEY = "zape52407ad41fde98699d4c8c9b85d9d7f"  # 🔑 YAHAN APNA ZAP KEY LAGAO
-ZAP_API_URL = "https://pay.zapupi.com/api/create-order"  # ✅ Fixed API URL
-WEBHOOK_URL = "https://fub-bot.onrender.com/webhook"  # ✅ Fixed Webhook URL
+ZAP_KEY = "zape52407ad41fde98699d4c8c9b85d9d7f"  
+ZAP_API_URL = "https://pay.zapupi.com/api/create-order"  
+WEBHOOK_URL = "https://fub-bot.onrender.com/webhook"  
 
 # 💾 Store user orders
 user_orders = {}
@@ -33,15 +33,18 @@ def create_zapupi_order(user_id, user_name, amount=500):
     """Create order in ZapUPI gateway"""
     order_id = f"APK_{user_id}_{int(time.time())}"
     
+    # ✅ FIX: Remark में कोई स्पेस या स्पेशल कैरेक्टर नहीं होना चाहिए
+    safe_remark = f"APK{user_id}" 
+
     # ✅ Fixed Payload according to ZapUPI Docs
     payload = {
         "zap_key": ZAP_KEY,
         "order_id": order_id,
         "amount": str(amount),
-        "customer_mobile": str(user_id)[:10],  # Telegram ID as mobile (max 10 digits)
-        "remark": f"APK FUD V2 Purchase - {user_name}",
+        "customer_mobile": str(user_id)[:10],  
+        "remark": safe_remark,  
         "webhook_url": WEBHOOK_URL,
-        "success_url": f"https://t.me/{bot.get_me().username}"
+        "success_url": "https://t.me/Rahul_Mod77_bot" # ✅ आपका बॉट यूज़रनेम लगा दिया है
     }
     
     headers = {
@@ -60,8 +63,7 @@ def create_zapupi_order(user_id, user_name, amount=500):
             except ValueError:
                 return {"success": False, "error": f"Invalid API Response: {response.text[:50]}"}
                 
-            if data.get("status") == "success":
-                # ✅ Fixed: ZapUPI returns 'payment_url'
+            if data.get("status") == "success" or data.get("status") == True:
                 payment_link = data.get("payment_url") or data.get("payment_link") or data.get("url")
                 return {
                     "success": True,
@@ -81,8 +83,6 @@ def create_zapupi_order(user_id, user_name, amount=500):
 # ============= VERIFY PAYMENT STATUS =============
 def check_payment_status(order_id):
     """Check payment status from ZapUPI"""
-    # Note: If you have the specific check-status URL, update it here.
-    # Otherwise, webhook will handle the auto-verification.
     url = "https://pay.zapupi.com/api/check-status"
     payload = {
         "zap_key": ZAP_KEY,
@@ -165,13 +165,7 @@ def start_command(message):
 💡 **𝐂𝐥𝐢𝐜𝐤 𝐁𝐔𝐘 𝐍𝐎𝐖 𝐭𝐨 𝐩𝐫𝐨𝐜𝐞𝐞𝐝**
 ━━━━━━━━━━━━━━━━━━━━━━━━
 """
-    
-    bot.send_message(
-        user_id,
-        welcome_text,
-        parse_mode='Markdown',
-        reply_markup=get_main_keyboard()
-    )
+    bot.send_message(user_id, welcome_text, parse_mode='Markdown', reply_markup=get_main_keyboard())
 
 # ============= BUY NOW BUTTON =============
 @bot.callback_query_handler(func=lambda call: call.data == "buy_now")
@@ -229,22 +223,9 @@ def buy_now_callback(call):
 
 ━━━━━━━━━━━━━━━━━━━━━━━━
 """
+        bot.send_message(user_id, payment_text, parse_mode='Markdown', reply_markup=get_payment_keyboard(order['order_id']))
         
-        bot.send_message(
-            user_id,
-            payment_text,
-            parse_mode='Markdown',
-            reply_markup=get_payment_keyboard(order['order_id'])
-        )
-        
-        admin_msg = f"""
-🆕 **𝐍𝐄𝐖 𝐎𝐑𝐃𝐄𝐑 𝐂𝐑𝐄𝐀𝐓𝐄𝐃**
-
-👤 **𝐔𝐬𝐞𝐫:** {user_name}
-🆔 **𝐔𝐬𝐞𝐫 𝐈𝐃:** `{user_id}`
-🆔 **𝐎𝐫𝐝𝐞𝐫 𝐈𝐃:** `{order['order_id']}`
-💰 **𝐀𝐦𝐨𝐮𝐧𝐭:** ₹{order['amount']}
-"""
+        admin_msg = f"🆕 **𝐍𝐄𝐖 𝐎𝐑𝐃𝐄𝐑 𝐂𝐑𝐄𝐀𝐓𝐄𝐃**\n\n👤 **𝐔𝐬𝐞𝐫:** {user_name}\n🆔 **𝐔𝐬𝐞𝐫 𝐈𝐃:** `{user_id}`\n🆔 **𝐎𝐫𝐝𝐞𝐫 𝐈𝐃:** `{order['order_id']}`\n💰 **𝐀𝐦𝐨𝐮𝐧𝐭:** ₹{order['amount']}"
         bot.send_message(ADMIN_ID, admin_msg, parse_mode='Markdown')
         
     else:
@@ -266,21 +247,15 @@ def check_payment_callback(call):
         return
     
     order = user_orders[user_id]
-    
     bot.answer_callback_query(call.id, "🔄 Checking payment status...")
     
-    checking_msg = bot.send_message(
-        user_id,
-        "🔄 **𝐂𝐡𝐞𝐜𝐤𝐢𝐧𝐠 𝐩𝐚𝐲𝐦𝐞𝐧𝐭 𝐬𝐭𝐚𝐭𝐮𝐬...**\n\n⏳ 𝐏𝐥𝐞𝐚𝐬𝐞 𝐰𝐚𝐢𝐭",
-        parse_mode='Markdown'
-    )
+    checking_msg = bot.send_message(user_id, "🔄 **𝐂𝐡𝐞𝐜𝐤𝐢𝐧𝐠 𝐩𝐚𝐲𝐦𝐞𝐧𝐭 𝐬𝐭𝐚𝐭𝐮𝐬...**\n\n⏳ 𝐏𝐥𝐞𝐚𝐬𝐞 𝐰𝐚𝐢𝐭", parse_mode='Markdown')
     
     is_paid = check_payment_status(order_id)
     
     if is_paid:
         verified_users.add(user_id)
         order["status"] = "completed"
-        
         bot.delete_message(user_id, checking_msg.message_id)
         
         success_msg = """
