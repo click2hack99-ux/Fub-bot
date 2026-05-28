@@ -65,7 +65,7 @@ def start_command(message):
 │    💰 𝐏𝐑𝐈𝐂𝐄 💰       │
 ◈────────────────────◈
 
-🔥 **𝐂𝐨𝐧𝐭𝐚𝐜𝐭 𝐒𝐚𝐥𝐞𝐬 𝐓𝐞𝐚𝐦**
+🔥 **𝐏𝐫𝐢𝐜𝐞: ₹𝟱𝟬𝟬 𝗢𝗻𝗹𝘆**
 📆 **𝗨𝗻𝗹𝗶𝗺𝗶𝘁𝗲𝗱 𝗙𝗨𝗗**
 ⏰ **𝗩𝗮𝗹𝗶𝗱𝗶𝘁𝘆: 𝟭 𝗠𝗼𝗻𝘁𝗵**
 
@@ -88,7 +88,7 @@ def status_command(message):
     if user_id in verified_users:
         status_msg = "✅ **𝐀𝐂𝐂𝐄𝐒𝐒 𝐀𝐂𝐓𝐈𝐕𝐄**\n\n[📥 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 𝐀𝐏𝐊](https://example.com/apk-fud.apk)"
     else:
-        status_msg = "❌ **𝐍𝐎 𝐀𝐂𝐓𝐈𝐕𝐄 𝐒𝐔𝐁𝐒𝐂𝐑𝐈𝐏𝐓𝐈𝐎𝐍**\n\n💡 𝐓𝐲𝐩𝐞 /start 𝐚𝐧𝐝 𝐜𝐥𝐢𝐜𝐤 𝐂𝐎𝐍𝐓𝐀𝐂𝐓 𝐓𝐎 𝐁𝐔𝐘"
+        status_msg = "❌ **𝐍𝐎 𝐀𝐂𝐓𝐈𝐕𝐄 𝐒𝐔𝐁𝐒𝐂𝐑𝐈𝐏𝐓𝐈𝐎𝐍**\n\n💡 𝐓𝐲𝐩𝐞 /start 𝐚𝐧𝐝 𝐜𝐥𝐢𝐜𝐤 𝐂𝐎𝐍𝐓𝐀𝐂𝐓 𝐓𝐎 𝐁𝐔𝐘\n\n💰 **𝐏𝐫𝐢𝐜𝐞: ₹𝟱𝟬𝟬**"
     bot.send_message(user_id, status_msg, parse_mode='Markdown')
 
 # ============= ADMIN COMMANDS =============
@@ -207,6 +207,8 @@ def help_command(message):
 /help - Show this help menu
 
 ━━━━━━━━━━━━━━━━━━
+💰 **𝐏𝐫𝐢𝐜𝐞: ₹𝟱𝟬𝟬**
+
 💡 **𝐇𝐨𝐰 𝐭𝐨 𝐁𝐮𝐲:**
 1. Click "CONTACT TO BUY" button
 2. Message @RahulMod77
@@ -247,6 +249,7 @@ if __name__ == "__main__":
     print(f"🤖 Bot Token: {BOT_TOKEN[:10]}...")
     print(f"👑 Admin ID: {ADMIN_ID}")
     print(f"📞 Support: @{SUPPORT_USERNAME}")
+    print("💰 Price: ₹500")
     print("=" * 50)
     
     # Start bot polling in background thread
