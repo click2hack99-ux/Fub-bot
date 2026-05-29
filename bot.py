@@ -8,14 +8,16 @@ import os
 import time
 import threading
 from flask import Flask, jsonify
+from datetime import datetime
 
 # 🔑 BOT CONFIG
 BOT_TOKEN = "8766471260:AAEzCxeEJTL9l-2JoO09zHpgR-409-j9QTM"
 ADMIN_ID = 8366608745
 SUPPORT_USERNAME = "RahulMod77"  # Contact username
 
-# Store verified users
-verified_users = set()
+# Store verified users with timestamp
+verified_users = {}  # {user_id: {"date": "2024-01-01", "username": "username"}}
+pending_requests = {}  # For future use
 
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
@@ -91,8 +93,59 @@ def status_command(message):
         status_msg = "❌ **𝐍𝐎 𝐀𝐂𝐓𝐈𝐕𝐄 𝐒𝐔𝐁𝐒𝐂𝐑𝐈𝐏𝐓𝐈𝐎𝐍**\n\n💡 𝐓𝐲𝐩𝐞 /start 𝐚𝐧𝐝 𝐜𝐥𝐢𝐜𝐤 𝐂𝐎𝐍𝐓𝐀𝐂𝐓 𝐓𝐎 𝐁𝐔𝐘\n\n💰 **𝐏𝐫𝐢𝐜𝐞: ₹𝟱𝟬𝟬**"
     bot.send_message(user_id, status_msg, parse_mode='Markdown')
 
-# ============= ADMIN COMMANDS =============
+# ============= ADMIN COMMAND - Show all user stats =============
 @bot.message_handler(commands=['admin'])
+def admin_command(message):
+    # Check if user is admin
+    if message.from_user.id != ADMIN_ID:
+        bot.send_message(message.chat.id, "❌ **𝐔𝐧𝐚𝐮𝐭𝐡𝐨𝐫𝐢𝐳𝐞𝐝 𝐀𝐜𝐜𝐞𝐬𝐬!**\n\nThis command is only for bot admin.", parse_mode='Markdown')
+        return
+    
+    total_users = len(verified_users)
+    
+    # Calculate today's users (users added today)
+    today = datetime.now().strftime("%Y-%m-%d")
+    today_users = 0
+    recent_users_list = []
+    
+    for uid, data in verified_users.items():
+        if data.get("date") == today:
+            today_users += 1
+        recent_users_list.append(f"• `{uid}` | @{data.get('username', 'unknown')}")
+    
+    # Show last 10 users
+    last_10 = "\n".join(recent_users_list[-10:]) if recent_users_list else "No users yet"
+    
+    admin_stats = f"""
+╔════════════════════════════════╗
+║      👑 𝐀𝐃𝐌𝐈𝐍 𝐏𝐀𝐍𝐄𝐋 👑      ║
+╚════════════════════════════════╝
+
+📊 **𝐒𝐓𝐀𝐓𝐈𝐒𝐓𝐈𝐂𝐒**
+━━━━━━━━━━━━━━━━━━━━━━━━
+✅ **𝐓𝐨𝐭𝐚𝐥 𝐕𝐞𝐫𝐢𝐟𝐢𝐞𝐝 𝐔𝐬𝐞𝐫𝐬:** `{total_users}`
+📅 **𝐓𝐨𝐝𝐚𝐲'𝐬 𝐔𝐬𝐞𝐫𝐬:** `{today_users}`
+💰 **𝐏𝐫𝐢𝐜𝐞:** `₹500`
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+👥 **𝐑𝐄𝐂𝐄𝐍𝐓 𝐔𝐒𝐄𝐑𝐒 (𝐋𝐚𝐬𝐭 𝟏𝟎)**
+{last_10}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+📌 **𝐀𝐃𝐌𝐈𝐍 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒**
+/give @username or id - Give access
+/remove @username or id - Remove access
+/users - List all users with details
+/broadcast - Send message to all
+/status - Bot status
+━━━━━━━━━━━━━━━━━━━━━━━━
+👨‍💻 @RahulModDeveloper
+"""
+    
+    bot.send_message(ADMIN_ID, admin_stats, parse_mode='Markdown')
+
+# ============= ADMIN PANEL (Old - keeping for compatibility) =============
+@bot.message_handler(commands=['panel'])
 def admin_panel(message):
     if message.from_user.id != ADMIN_ID: 
         return
@@ -124,8 +177,22 @@ def give_access(message):
     # Check if it's numeric (user_id) or string (username)
     if target.isdigit():
         user_id = int(target)
-        verified_users.add(user_id)
-        bot.reply_to(message, f"✅ Access granted to User ID: `{user_id}`", parse_mode='Markdown')
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        
+        # Try to get username
+        username = "unknown"
+        try:
+            user_info = bot.get_chat(user_id)
+            username = user_info.username or "no_username"
+        except:
+            pass
+        
+        verified_users[user_id] = {
+            "date": current_date,
+            "username": username,
+            "user_id": user_id
+        }
+        bot.reply_to(message, f"✅ Access granted to User ID: `{user_id}`\n📅 Date: {current_date}", parse_mode='Markdown')
         
         # Notify the user
         try:
@@ -133,11 +200,10 @@ def give_access(message):
         except:
             pass
     else:
-        # Username based (can't directly add, need user_id)
         bot.reply_to(message, f"⚠️ To give access by username, first get the user's ID.\n\nOr use: /give user_id\n\nContact @{target} manually.")
     
-    # Update admin panel stats
-    admin_panel(message)
+    # Update admin stats
+    admin_command(message)
 
 @bot.message_handler(commands=['remove'])
 def remove_access(message):
@@ -154,7 +220,7 @@ def remove_access(message):
     if target.isdigit():
         user_id = int(target)
         if user_id in verified_users:
-            verified_users.remove(user_id)
+            del verified_users[user_id]
             bot.reply_to(message, f"❌ Access removed for User ID: `{user_id}`", parse_mode='Markdown')
         else:
             bot.reply_to(message, f"⚠️ User ID `{user_id}` not found in verified list", parse_mode='Markdown')
@@ -170,8 +236,21 @@ def list_users(message):
         bot.reply_to(message, "📭 No verified users yet.")
         return
     
-    user_list = "\n".join([f"• `{uid}`" for uid in verified_users])
-    bot.reply_to(message, f"📋 **𝐕𝐞𝐫𝐢𝐟𝐢𝐞𝐝 𝐔𝐬𝐞𝐫𝐬 ({len(verified_users)}):**\n\n{user_list}", parse_mode='Markdown')
+    user_list = []
+    for uid, data in verified_users.items():
+        username = data.get('username', 'unknown')
+        date = data.get('date', 'unknown')
+        user_list.append(f"• `{uid}` | @{username} | 📅 {date}")
+    
+    users_text = "\n".join(user_list)
+    
+    # Split if message too long
+    if len(users_text) > 4000:
+        parts_list = [users_text[i:i+4000] for i in range(0, len(users_text), 4000)]
+        for idx, part in enumerate(parts_list):
+            bot.reply_to(message, f"📋 **𝐕𝐞𝐫𝐢𝐟𝐢𝐞𝐝 𝐔𝐬𝐞𝐫𝐬 ({len(verified_users)}) - Part {idx+1}:**\n\n{part}", parse_mode='Markdown')
+    else:
+        bot.reply_to(message, f"📋 **𝐕𝐞𝐫𝐢𝐟𝐢𝐞𝐝 𝐔𝐬𝐞𝐫𝐬 ({len(verified_users)}):**\n\n{users_text}", parse_mode='Markdown')
 
 @bot.message_handler(commands=['broadcast'])
 def broadcast_message(message):
@@ -225,7 +304,8 @@ def home():
     return {
         "status": "APK FUD Bot is Running",
         "version": "V3",
-        "verified_users": len(verified_users)
+        "verified_users": len(verified_users),
+        "admin_id": ADMIN_ID
     }, 200
 
 @app.route('/health')
