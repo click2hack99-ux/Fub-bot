@@ -11,7 +11,7 @@ from flask import Flask, jsonify
 from datetime import datetime
 
 # 🔑 BOT CONFIG
-BOT_TOKEN = "8766471260:AAEzCxeEJTL9l-2JoO09zHpgR-409-j9QTM"
+BOT_TOKEN = "8635537345:AAHy2OCc2Fh40eMcPSy3VV5aZXf6x2vL_JQ"
 ADMIN_ID = 8366608745
 SUPPORT_USERNAME = "RahulMod77"
 
